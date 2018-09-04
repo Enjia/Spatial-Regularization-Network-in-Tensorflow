@@ -2,6 +2,7 @@ import tensorflow as tf
 from module import Module
 
 CLASSES = 81
+ALPHA = 0.5
 
 class SRNet(Module):
 
@@ -95,9 +96,34 @@ class SRNet(Module):
     def final_score(self):
         y_cls_raw, y_cls = self.main_net()
         _, _, y_sr_raw = self.srnet()
-        final_pred = tf.add_n([y_cls_raw, y_sr_raw])
+        # using weighting factor to aggregate scores
+        final_pred = tf.add_n([ALPHA * y_cls_raw, (1 - ALPHA) * y_sr_raw], name="final_scores")
         return final_pred
-    
+
+    def build_loss(self, labels, logits, loss):
+        if loss == "ycls_loss":
+            with tf.variable_scope("ycls_loss"):
+                ycls_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+                ycls_loss = tf.reduce_mean(ycls_loss, name="ycls_loss")
+                return ycls_loss
+        elif loss == "yatt_loss":
+            with tf.variable_scope("yatt_loss"):
+                yatt_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+                yatt_loss = tf.reduce_mean(yatt_loss, name="yatt_loss")
+                return yatt_loss
+        elif loss == "ysr_loss":
+            with tf.variable_scope("ysr_loss"):
+                ysr_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+                ysr_loss = tf.reduce_mean(ysr_loss, name="ysr_loss")
+                return ysr_loss
+        elif loss == "final_loss":
+            with tf.variable_scope("final_loss"):
+                final_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+                final_loss = tf.reduce_mean(final_loss, name="ycls_loss")
+                return final_loss
+        else:
+            raise Exception("Invaild loss {}".format(loss))
+
     def _start_block(self):
         outputs = self.conv(self.inputs, 7, 7, 64, 2, 2, "conv1")
         outputs = self.batch_normal(outputs, name="batch_conv1",
