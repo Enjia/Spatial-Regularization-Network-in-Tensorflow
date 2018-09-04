@@ -17,7 +17,7 @@ class Module(object):
             var = tf.get_variable(name, shape, initializer=initializer, trainable=trainable)
         return var
 
-    def conv(self, x, k_h, k_w, c_o, s_h, s_w, name, relu, group=1, bias_term=False, padding='SAME', trainable=True):
+    def conv(self, x, k_h, k_w, c_o, s_h, s_w, name, group=1, bias_term=False, padding='SAME', trainable=True):
         with tf.name_scope(name), tf.variable_scope(name):
             c_i = x.get_shape().as_list()[-1] / group
             weights = self.make_cpu_variable("weights", [k_h, k_w, c_i, c_o], trainable=trainable)
@@ -33,8 +33,6 @@ class Module(object):
             if bias_term:
                 biases = self.make_cpu_variable("biases", [c_o], trainable=trainable)
                 outputs = tf.nn.bias_add(outputs, biases)
-            if relu:
-                outputs = tf.nn.relu(outputs)
             return outputs
 
     @staticmethod
