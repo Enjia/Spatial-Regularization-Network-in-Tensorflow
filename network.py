@@ -1,7 +1,7 @@
 import tensorflow as tf
 from module import Module
 
-CLASSES = 81
+CLASSES = 6
 ALPHA = 0.5
 
 class SRNet(Module):
@@ -97,37 +97,20 @@ class SRNet(Module):
         y_cls_raw, y_cls = self.main_net()
         _, _, y_sr_raw = self.srnet()
         # using weighting factor to aggregate scores
-        final_pred = tf.add_n([ALPHA * y_cls_raw, (1 - ALPHA) * y_sr_raw], name="final_scores")
-        return final_pred
+        final_pred_raw = tf.add_n([ALPHA * y_cls_raw, (1 - ALPHA) * y_sr_raw], name="final_scores")
+        final_pred = tf.nn.sigmoid(final_pred_raw)
+        return final_pred_raw, final_pred
 
     def build_loss(self, labels, logits, loss):
-        if loss == "ycls_loss":
-            with tf.variable_scope("ycls_loss"):
-                ycls_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
-                ycls_loss = tf.reduce_mean(ycls_loss, name="ycls_loss")
-                return ycls_loss
-        elif loss == "yatt_loss":
-            with tf.variable_scope("yatt_loss"):
-                yatt_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
-                yatt_loss = tf.reduce_mean(yatt_loss, name="yatt_loss")
-                return yatt_loss
-        elif loss == "ysr_loss":
-            with tf.variable_scope("ysr_loss"):
-                ysr_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
-                ysr_loss = tf.reduce_mean(ysr_loss, name="ysr_loss")
-                return ysr_loss
-        elif loss == "final_loss":
-            with tf.variable_scope("final_loss"):
-                final_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
-                final_loss = tf.reduce_mean(final_loss, name="ycls_loss")
-                return final_loss
-        else:
-            raise Exception("Invaild loss {}".format(loss))
+        with tf.variable_scope(loss):
+            loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
+            loss = tf.reduce_mean(loss)
+            return loss
 
     def _start_block(self):
         outputs = self.conv(self.inputs, 7, 7, 64, 2, 2, "conv1")
         outputs = self.batch_normal(outputs, name="batch_conv1",
-                                    is_train=self.,
+                                    is_train=self.is_train,
                                     activiation_fn=tf.nn.relu)
         outputs = self.max_pool(outputs, 3, 3, 3, 3, name="pool1")
         return outputs
@@ -153,7 +136,7 @@ class SRNet(Module):
             o_b1 = self.conv(o_b1, 1, 1, c_o, s, s, name="res%s_branch2d" % name)
             # add
             outputs = self.add([o_b1, o_b2c], name="res%s" % name)
-            return outputs
+
         else:
             # identity connection input: o_b1(x)
             o_b1 = x
@@ -167,4 +150,5 @@ class SRNet(Module):
             o_b2c = self.batch_normal(o_b2b, is_train=self.is_train, name="bn%s_branch2c" % name, activiation_fn=tf.nn.relu)
             o_b2c = self.conv(o_b2c, 1, 1, c_o, 1, 1, name="res%s_branch2c" % name)
             outputs = self.add([o_b1, o_b2c], name="res%s" % name)
-            return outputs
+        
+        return outputs
