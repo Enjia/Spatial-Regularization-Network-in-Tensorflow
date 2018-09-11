@@ -6,7 +6,7 @@ class Module(object):
         self.inputs = inputs
         self.is_train = is_train
         self.trainable = trainable
-        self.setup()
+        #self.setup()
 
     def setup(self):
         raise NotImplementedError("Need to be implemented in subclass")
@@ -49,7 +49,7 @@ class Module(object):
 
     def fc(self, x, nout, name, relu, bias_term=False, trainable=True):
         with tf.name_scope(name), tf.variable_scope(name):
-            input_shape = x.get_shape.as_list()
+            input_shape = x.get_shape().as_list()
             if len(input_shape) == 4:
                 dim = 1
                 for d in input_shape[1:]:
